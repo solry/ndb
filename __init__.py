@@ -89,6 +89,14 @@ class DataBase:
             self._log(error)
             self.rollback()
             raise psycopg2.ProgrammingError(error)
+        except psycopg2.IntegrityError as error:
+            self._log(error)
+            self.rollback()
+            raise psycopg2.IntegrityError(error)
+        except psycopg2.InternalError as error:
+            self._log(error)
+            self.rollback()
+            raise psycopg2.InternalError(error)
 
         if self.autocommit:
             self.connect.commit()
@@ -110,14 +118,14 @@ class DataBase:
 
     def dquery(self, query_string):
         """
-        Execute query with regular cursor
+        Execute query with dict cursor
 
         :param query_string: query itself
         :return: return _execute_base object - list of dicts
         """
         return self._execute_base(self.dcursor, query_string)
 
-    def insert(self, table, insert_dict, returning_id=False):
+    def insert(self, table, insert_dict, returning=None):
         """
         Use this method to make an easy INSERT statement.
         Instead of VALUES, just give insert_dict:
@@ -138,6 +146,7 @@ class DataBase:
         for idx, pair in enumerate(insert_dict.items()):
             key, val = pair
             key_str += key
+
             if val is None:
                 val_str += 'Null'
             elif val is True or val is False:
@@ -151,10 +160,11 @@ class DataBase:
 
         query_string = f'INSERT INTO {table} ({key_str}) VALUES ({val_str})'
 
-        if returning_id:
-            query_string += ' RETURNING id'
+        if returning:
+            query_string += f' RETURNING {returning}'
+            return self._execute_base(self.cursor, query_string)[0]
 
-        return self._execute_base(self.cursor, query_string)[0]
+        return self._execute_base(self.cursor, query_string)
 
 
     def update(self, table, update_dict, where):
