@@ -68,6 +68,24 @@ class DataBase:
         self.cursor.close()
         self.connect.close()
 
+    def execute(self, query, param_tuple):
+        cursor = self.dcursor
+        try:
+            cursor.execute(query, param_tuple)
+        except (psycopg2.ProgrammingError, psycopg2.IntegrityError, psycopg2.InternalError) as error:
+            self._log(error)
+            self.rollback()
+            raise error
+
+        if self.autocommit:
+            self.connect.commit()
+
+        if any([query.upper().startswith("SELECT"),
+                'RETURNING' in query.upper()]):
+            return cursor.fetchall()
+        else:
+            return cursor.rowcount
+
     def _execute_base(self, cursor, query_string):
         """
         Base executor for queries
@@ -85,18 +103,10 @@ class DataBase:
         self._log(f'Trying execute: {query_string}')
         try:
             cursor.execute(query_string)
-        except psycopg2.ProgrammingError as error:
+        except (psycopg2.ProgrammingError, psycopg2.IntegrityError, psycopg2.InternalError) as error:
             self._log(error)
             self.rollback()
-            raise psycopg2.ProgrammingError(error)
-        except psycopg2.IntegrityError as error:
-            self._log(error)
-            self.rollback()
-            raise psycopg2.IntegrityError(error)
-        except psycopg2.InternalError as error:
-            self._log(error)
-            self.rollback()
-            raise psycopg2.InternalError(error)
+            raise error
 
         if self.autocommit:
             self.connect.commit()
@@ -133,7 +143,7 @@ class DataBase:
             values will becomes column values
         :param table: which table do you like to INSERT INTO
         :param insert_dict: key-val that will be mapped to COLUMNS-VALUES
-        :param returning_id: if True - query will return you ID of inserted entry
+        :param returning: query will return you column value of inserted entry
 
         :return:
         if returning_id is True:
