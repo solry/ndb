@@ -15,9 +15,14 @@ class DataBase:
         :param logging_level: Choose from [ None, 'debug', 'info', 'warning', 'error' ]
                               This param set logging severity for all log messages
         """
-        self.connect = psycopg2.connect(host=host, database=database, user=user, password=password)
+        self.host = host
+        self.password = password
+        self.user = user
+        self.database = database
+        self.connect = psycopg2.connect(host=self.host, database=self.database, user=self.user, password=self.password)
         self.cursor = self.connect.cursor()
         self.dcursor = self.connect.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
         if logging_level in [None, 'debug', 'info', 'warning', 'error']:
             self.logging_level = logging_level
         else:
@@ -25,6 +30,21 @@ class DataBase:
 
         self.autocommit = True
         self._log(f'Connection established to host {host}')
+
+    def do_connect(self):
+        self.connect = psycopg2.connect(host=self.host, database=self.database, user=self.user, password=self.password)
+        self.cursor = self.connect.cursor()
+        self.dcursor = self.connect.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    def check_and_reconnect(self):
+        try:
+            self.query("SELECT 1")
+        except psycopg2.OperationalError:
+            self.do_connect()
+
+        if self.connect.closed:
+            return False
+        return True
 
     def _log(self, msg, *args, **kwargs):
         """
@@ -69,7 +89,10 @@ class DataBase:
         self.connect.close()
 
     def execute(self, query, param_tuple):
-        cursor = self.dcursor
+        cursor = self.cursor
+
+        # param_tuple = tuple((psycopg2.Binary(param) if isinstance(param, bytes) else param for param in param_tuple))
+
         try:
             cursor.execute(query, param_tuple)
         except (psycopg2.ProgrammingError, psycopg2.IntegrityError, psycopg2.InternalError) as error:
@@ -175,7 +198,6 @@ class DataBase:
             return self._execute_base(self.cursor, query_string)[0]
 
         return self._execute_base(self.cursor, query_string)
-
 
     def update(self, table, update_dict, where):
         """
