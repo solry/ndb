@@ -39,6 +39,7 @@ class DataBase:
     def check_and_reconnect(self):
         try:
             self.query("SELECT 1")
+            return True
         except psycopg2.OperationalError:
             self.do_connect()
 
@@ -89,6 +90,8 @@ class DataBase:
         self.connect.close()
 
     def execute(self, query, param_tuple):
+        self.check_and_reconnect()
+
         cursor = self.cursor
 
         # param_tuple = tuple((psycopg2.Binary(param) if isinstance(param, bytes) else param for param in param_tuple))
@@ -123,6 +126,7 @@ class DataBase:
         else:
             return count of affected rows
         """
+        self.check_and_reconnect()
         self._log(f'Trying execute: {query_string}')
         try:
             cursor.execute(query_string)
