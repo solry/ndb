@@ -40,7 +40,7 @@ class DataBase:
         try:
             self.cursor.execute("SELECT 1")
             return True
-        except psycopg2.OperationalError:
+        except (psycopg2.OperationalError, psycopg2.InterfaceError):
             self.do_connect()
 
         if self.connect.closed:
@@ -127,6 +127,12 @@ class DataBase:
             return count of affected rows
         """
         self.check_and_reconnect()
+
+        if cursor.row_factory is None:
+            cursor = self.cursor
+        else:
+            cursor = self.dcursor
+
         self._log(f'Trying execute: {query_string}')
         try:
             cursor.execute(query_string)
