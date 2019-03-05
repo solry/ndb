@@ -38,7 +38,7 @@ class DataBase:
 
     def check_and_reconnect(self):
         try:
-            self.query("SELECT 1")
+            self.cursor.execute("SELECT 1")
             return True
         except psycopg2.OperationalError:
             self.do_connect()
